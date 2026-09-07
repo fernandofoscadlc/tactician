@@ -1,0 +1,9 @@
+{
+  "name": "Regatta Tactician",
+  "short_name": "Tactician",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A1014",
+  "theme_color": "#0A1014"
+}
