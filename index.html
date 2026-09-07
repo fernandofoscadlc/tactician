@@ -125,6 +125,7 @@
   .foot{color:var(--dim);font-size:12px;text-align:center;padding:12px 0 4px;line-height:1.5}
   .warn{color:var(--live)}
 </style>
+<link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
 
@@ -827,6 +828,11 @@ paintPolar();
 /* ---------- boot ---------- */
 paintClock();paintHud();paintLog();bias();layline();
 })();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js"); });
+}
 </script>
 </body>
 </html>
