@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0A1014">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Tactician</title>
+<style>
+  :root{
+    --bg:#0A1014; --panel:#141F27; --line:#24343F;
+    --ink:#F2F0EC; --dim:#7E8B96;
+    --stbd:#4CD07E; --port:#FF5F52; --live:#FFC94A;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);
+    font-family:"Roboto",system-ui,sans-serif;
+    height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;
+    padding:calc(env(safe-area-inset-top) + 6px) 14px calc(env(safe-area-inset-bottom) + 10px)}
+  .stage{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding-bottom:20px}
+
+  /* persistent readout */
+  .hud{flex:0 0 auto;display:flex;align-items:center;gap:16px;
+    padding:18px 20px;margin:0 0 14px;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  .hud .w{font:500 46px/1 "Roboto Mono",monospace;font-variant-numeric:tabular-nums}
+  .hud .rt{flex:1;text-align:right;line-height:1.35}
+  .hud .sh{font:600 21px/1 "Roboto",sans-serif}
+  .hud .tk{font-size:14px;color:var(--dim);margin-top:5px}
+  .hud .sh.left{color:var(--port)} .hud .sh.right{color:var(--stbd)}
+  .hud .lt{font:600 21px/1 "Roboto",sans-serif;margin-bottom:5px}
+  .hud .lt.port{color:var(--port)} .hud .lt.stbd{color:var(--stbd)}
+  .hud .lt.even{color:var(--dim)}
+  .hud .ax{font-size:12px;color:var(--dim);margin-top:4px}
+
+  .pol{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+  .pol h3{font:600 13px/1 "Roboto",sans-serif;letter-spacing:.06em;
+    color:var(--dim);margin:0 0 11px;text-transform:uppercase}
+  .polrow{display:flex;justify-content:space-between;align-items:baseline;
+    padding:11px 2px;border-bottom:1px solid var(--line)}
+  .polrow .k{font-size:14px;color:var(--dim)}
+  .polrow .v{font:500 22px/1 "Roboto Mono",monospace;font-variant-numeric:tabular-nums}
+  .polrow .v.sm{font-size:17px}
+  .polmatch{padding:12px 2px;font-size:14px;text-align:center;line-height:1.4}
+  .polmatch.ok{color:var(--dim)}
+  .polmatch.off{color:var(--live);font-weight:600}
+  .polnote{color:var(--dim);font-size:12px;line-height:1.55;padding-top:11px}
+
+  .flagrow{display:flex;align-items:flex-start;gap:14px;
+    padding:14px 2px;border-bottom:1px solid var(--line)}
+  .flagrow svg{flex:0 0 auto;width:54px;height:36px;
+    border:1px solid var(--line);border-radius:2px}
+  .flagrow .fx{flex:1;min-width:0}
+  .flagrow .fn{font:600 16px/1.25 "Roboto",sans-serif}
+  .flagrow .fm{font-size:14px;color:var(--ink);line-height:1.45;margin-top:4px}
+  .flagrow .fs{font:400 12px/1.4 "Roboto Mono",monospace;color:var(--dim);margin-top:5px}
+  .flagrow .chk{color:var(--live);font-size:12px;margin-top:5px}
+  .fhead{font:600 13px/1 "Roboto",sans-serif;letter-spacing:.06em;color:var(--dim);
+    text-transform:uppercase;margin:24px 0 8px}
+  .fhead:first-of-type{margin-top:8px}
+
+  .tabs{flex:0 0 auto;display:flex;gap:8px;margin-bottom:16px}
+  .tabs button{flex:1;padding:21px 4px;font:600 14px/1 "Roboto",sans-serif;
+    letter-spacing:.04em;color:var(--dim);background:var(--panel);
+    border:1px solid var(--line);border-radius:8px}
+  .tabs button[aria-selected="true"]{color:var(--bg);background:var(--ink);border-color:var(--ink)}
+
+  .view{display:none} .view.on{display:block}
+  #vStart.on{display:flex;flex-direction:column;min-height:100%}
+
+  .clock{font:300 104px/1 "Roboto Mono",monospace;text-align:center;
+    padding:16px 0 8px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .clock.up{color:var(--live)}
+  .cnote{text-align:center;color:var(--dim);font-size:15px;min-height:22px;margin-bottom:20px}
+
+  .btn{width:100%;padding:24px 18px;border-radius:10px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);
+    font:600 19px/1 "Roboto",sans-serif;letter-spacing:.03em}
+  .btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .btn.pt{background:var(--port);color:#180806;border-color:var(--port)}
+  .btn.sb{background:var(--stbd);color:#04160C;border-color:var(--stbd)}
+  .btn:active{opacity:.65}
+  .btn[disabled]{opacity:.35}
+  .row{display:flex;gap:16px;margin-bottom:16px}
+  .row .btn{padding:22px 10px;font-size:17px}
+
+  .tackbtns{display:flex;gap:16px;margin-bottom:16px}
+  .tackbtns .btn{flex:1;display:flex;flex-direction:column;align-items:center;
+    gap:8px;padding:18px 6px}
+  .tackbtns svg{width:58px;height:68px;display:block}
+  .tackbtns .lb{font:700 18px/1 "Roboto",sans-serif;letter-spacing:.06em}
+  .tackbtns .sub{font:400 11px/1.2 "Roboto",sans-serif;opacity:.7;text-align:center}
+
+  .setter{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+  .setter .lbl{color:var(--dim);font-size:14px;flex:1}
+  .setter button{width:76px;height:64px;border-radius:10px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);font-size:26px}
+  .setter .val{font:500 21px/1 "Roboto Mono",monospace;width:66px;text-align:center}
+
+  .field{margin-bottom:18px}
+  .field label{display:block;color:var(--dim);font-size:14px;margin-bottom:6px}
+  .field input{width:100%;padding:20px;font:500 25px/1 "Roboto Mono",monospace;
+    background:var(--panel);color:var(--ink);border:1px solid var(--line);
+    border-radius:10px;text-align:center;user-select:text}
+
+  .toggle{display:flex;gap:14px;margin-bottom:18px}
+  .toggle button{flex:1;padding:18px 8px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--dim);font:500 13px/1.3 "Roboto",sans-serif}
+  .toggle button[aria-pressed="true"]{color:var(--bg);background:var(--ink);border-color:var(--ink)}
+
+  .verdict{margin-top:14px;padding:20px 14px;border-radius:12px;
+    background:var(--panel);border:1px solid var(--line);text-align:center}
+  .verdict .big{font:600 32px/1.1 "Roboto",sans-serif}
+  .verdict .small{color:var(--dim);font-size:13px;margin-top:7px}
+  .verdict.pin .big{color:var(--port)} .verdict.boat .big{color:var(--stbd)}
+  .verdict.go .big{color:var(--live)}
+
+  .log{margin-top:14px;border-top:1px solid var(--line)}
+  .log div{display:flex;justify-content:space-between;padding:9px 2px;
+    border-bottom:1px solid var(--line);font:400 14px/1 "Roboto Mono",monospace;color:var(--dim)}
+  .log div span:first-child{color:var(--ink)}
+
+  .foot{color:var(--dim);font-size:12px;text-align:center;padding:12px 0 4px;line-height:1.5}
+  .warn{color:var(--live)}
+</style>
+</head>
+<body>
+
+<video id="nosleep" muted playsinline loop preload="auto"
+  style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:.01;pointer-events:none">
+  <source src="data:video/mp4;base64,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" type="video/mp4">
+</video>
+
+<div class="hud">
+  <div class="w" id="hudWind">---</div>
+  <div class="rt">
+    <div class="lt" id="hudLong">set course axis</div>
+    <div class="sh" id="hudShift">no data</div>
+    <div class="tk" id="hudTack">log a heading to start</div>
+    <div class="ax" id="hudAxis">axis not set</div>
+  </div>
+</div>
+
+<div class="tabs" role="tablist">
+  <button id="tStart" aria-selected="true">START</button>
+  <button id="tWind" aria-selected="false">WIND</button>
+  <button id="tLine" aria-selected="false">LINE</button>
+  <button id="tMark" aria-selected="false">MARK</button>
+</div>
+
+<div class="stage">
+<!-- START -->
+<section class="view on" id="vStart">
+  <div class="clock" id="clock">6:00</div>
+  <div class="cnote" id="cnote">ready</div>
+  <div class="setter" id="setter">
+    <span class="lbl">Countdown start</span>
+    <button id="lessMin">&minus;</button>
+    <span class="val" id="startVal">6:00</span>
+    <button id="moreMin">+</button>
+  </div>
+  <button class="btn primary" id="mainBtn">START</button>
+  <div class="row" style="margin-top:9px"><button class="btn" id="syncBtn">SYNC TO MINUTE</button></div>
+  <div class="row">
+    <button class="btn" id="minus1">&minus;1 min</button>
+    <button class="btn" id="plus1">+1 min</button>
+  </div>
+  <div class="row" style="margin-top:auto;padding-top:30px"><button class="btn" id="restartBtn">HOLD TO RESTART</button></div>
+  <div class="row" style="margin-top:9px"><button class="btn" id="flagBtn">RACE SIGNALS</button></div>
+  <div class="foot" id="wakeNote"></div>
+  <div class="foot"><a href="results.html" style="color:var(--dim)">open results page</a></div>
+</section>
+
+<!-- FLAGS -->
+<section class="view" id="vFlags">
+  <div class="row"><button class="btn primary" id="flagBack">BACK TO TIMER</button></div>
+  <div id="flagList"></div>
+  <div class="foot" style="text-align:left">
+    Meanings are from the World Sailing Race Signals for 2025-2028. Designs are drawn from
+    the heraldic blazons in the International Code of Signals.<br><br>
+    <span class="warn">Three designs are marked "check".</span> Their blazons are ambiguous
+    about which corner is which, and I could not confirm them against a photograph. Compare
+    those three with a real set before you rely on them, then this note can go.<br><br>
+    Sound signals are the standard ones. Confirm against the sailing instructions, and note
+    that your race committee chooses which starting penalty flag to fly.
+  </div>
+</section>
+
+<!-- WIND -->
+<section class="view" id="vWind">
+  <div class="tackbtns">
+    <button class="btn pt" id="logPort">
+      <svg viewBox="0 0 62 72" fill="none" stroke="currentColor" stroke-width="3"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M31 6 C41 22 43 46 31 66 C19 46 21 22 31 6 Z"/>
+        <path d="M31 20 Q45 36 38 56" stroke-width="4.5"/>
+        <path d="M5 5 L16 20"/>
+        <path d="M16 20 l-6.5 -1 M16 20 l-1 -6.5"/>
+      </svg>
+      <span class="lb">PORT</span>
+      <span class="sub">wind over<br>port side</span>
+    </button>
+    <button class="btn sb" id="logStbd">
+      <svg viewBox="0 0 62 72" fill="none" stroke="currentColor" stroke-width="3"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M31 6 C41 22 43 46 31 66 C19 46 21 22 31 6 Z"/>
+        <path d="M31 20 Q17 36 24 56" stroke-width="4.5"/>
+        <path d="M57 5 L46 20"/>
+        <path d="M46 20 l6.5 -1 M46 20 l1 -6.5"/>
+      </svg>
+      <span class="lb">STBD</span>
+      <span class="sub">wind over<br>starboard side</span>
+    </button>
+  </div>
+  <div class="row"><button class="btn" id="logDdw">DEAD DOWNWIND</button></div>
+  <div class="cnote" id="gpsNote">tap a tack to capture heading by GPS</div>
+
+  <div class="setter">
+    <span class="lbl">Tacking angle</span>
+    <button id="taLess">&minus;</button>
+    <span class="val" id="taVal">80&deg;</span>
+    <button id="taMore">+</button>
+  </div>
+
+  <div class="field">
+    <label for="manHdg">Or type heading, then tap a tack above</label>
+    <input id="manHdg" inputmode="numeric" maxlength="3" placeholder="000">
+  </div>
+
+  <div class="log" id="logList"></div>
+
+  <div class="setter" style="margin-top:16px">
+    <span class="lbl">Average over, minutes</span>
+    <button id="winLess">&minus;</button>
+    <span class="val" id="winVal">30</span>
+    <button id="winMore">+</button>
+  </div>
+  <div class="row"><button class="btn" id="resetLog">CLEAR LOG, START AVERAGE FRESH</button></div>
+  <div class="foot" style="text-align:left">
+    The shift compares the current wind against the average of the last <span id="winEcho">30</span>
+    minutes. Too long and the day's gradual veer reads as a shift. Too short and the average
+    chases the oscillation and always reads near zero. Clear the log after a long postponement
+    or an obvious change in the breeze.
+  </div>
+
+  <div class="setter" style="margin-top:16px">
+    <span class="lbl">Variation, degrees west</span>
+    <button id="vaLess">&minus;</button>
+    <span class="val" id="vaVal">10&deg;</span>
+    <button id="vaMore">+</button>
+  </div>
+  <div class="foot">GPS gives course over ground, true. Variation converts it to magnetic.<br>
+    Dead downwind readings are rough, plus or minus 10 to 15 degrees.</div>
+
+  <div class="pol">
+    <h3>Polar targets</h3>
+    <div class="toggle">
+      <button id="polUp" aria-pressed="true">UPWIND</button>
+      <button id="polDn" aria-pressed="false">DOWNWIND</button>
+    </div>
+
+    <div id="polUpwind">
+      <div class="setter">
+        <span class="lbl">True wind speed, knots</span>
+        <button id="twsLess">&minus;</button>
+        <span class="val" id="twsVal">10</span>
+        <button id="twsMore">+</button>
+      </div>
+      <div class="polrow"><span class="k">Tacking angle, polar</span>
+        <span class="v" id="polTack">80&deg;</span></div>
+      <div class="polrow"><span class="k">Target boat speed</span>
+        <span class="v" id="polSpd">6.02</span></div>
+      <div class="polrow"><span class="k">Beat VMG</span>
+        <span class="v sm" id="polVmg">4.60</span></div>
+      <div class="polmatch" id="polMatch"></div>
+      <div class="polnote">Nothing here changes the tacking angle above. Set that by hand,
+        before the start, and leave it alone during a race.<br>
+        Speeds are ORC predictions for ELIMINATOR, a C&amp;C 35-2. Reference, not a speed
+        Dragon Spirit is known to hit. The angles are the robust part.</div>
+    </div>
+
+    <div id="polDownwind" style="display:none">
+      <div class="polnote" style="padding-top:0">
+        No white-sail running polar exists. Every ORC certificate is computed with a
+        spinnaker flying, so there is no published data for running wing and wing.<br><br>
+        <span class="warn">Break-even below is reasoning, not data.</span>
+        Gybing downwind has to beat wing and wing by:
+      </div>
+      <div class="polrow"><span class="k">at 130&deg; true wind angle</span>
+        <span class="v sm">+56%</span></div>
+      <div class="polrow"><span class="k">at 140&deg;</span>
+        <span class="v sm">+31%</span></div>
+      <div class="polrow"><span class="k">at 150&deg;</span>
+        <span class="v sm">+16%</span></div>
+      <div class="polnote">Kite numbers deliberately excluded. Dragon Spirit races NFS
+        this regatta, so they would not apply.</div>
+    </div>
+  </div>
+</section>
+
+<!-- LINE -->
+<section class="view" id="vLine">
+  <div class="field">
+    <label for="lineBrg">Line bearing, magnetic</label>
+    <input id="lineBrg" inputmode="numeric" maxlength="3" placeholder="000">
+  </div>
+  <div class="toggle">
+    <button id="dirPB" aria-pressed="true">Sighted pin to boat</button>
+    <button id="dirBP" aria-pressed="false">Sighted boat to pin</button>
+  </div>
+  <div class="verdict" id="verdict">
+    <div class="big" id="vBig">enter line bearing</div>
+    <div class="small" id="vSmall">line is square to &mdash;</div>
+  </div>
+  <div class="foot">Uses the wind from the readout above.<br>Re-shoot the line for each race.</div>
+</section>
+
+<!-- MARK -->
+<section class="view" id="vMark">
+  <div class="field">
+    <label for="markBrg">Bearing to windward mark, magnetic</label>
+    <input id="markBrg" inputmode="numeric" maxlength="3" placeholder="000">
+  </div>
+  <div class="verdict" id="lay">
+    <div class="big" id="lBig">enter mark bearing</div>
+    <div class="small" id="lSmall">&mdash;</div>
+  </div>
+  <div class="foot">Sight the mark with the hand bearing compass.<br>
+    Needs a wind reading and the tack you are on.</div>
+</section>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- math ---------- */
+var norm=function(d){return ((d%360)+360)%360;};
+var signed=function(a,b){return norm(a-b+180)-180;};
+var pad2=function(n){return n<10?"0"+n:""+n;};
+var pad3=function(n){n=norm(Math.round(n));return (n<10?"00":n<100?"0":"")+n;};
+function circMean(list){
+  if(!list.length) return null;
+  var x=0,y=0;
+  for(var i=0;i<list.length;i++){var r=list[i]*Math.PI/180;x+=Math.cos(r);y+=Math.sin(r);}
+  return norm(Math.atan2(y/list.length,x/list.length)*180/Math.PI);
+}
+
+/* ---------- storage ---------- */
+function save(k,v){try{localStorage.setItem("tac_"+k,JSON.stringify(v));}catch(e){}}
+function load(k,d){try{var v=localStorage.getItem("tac_"+k);return v===null?d:JSON.parse(v);}catch(e){return d;}}
+
+/* ---------- audio ---------- */
+var actx=null;
+function audioReady(){
+  if(!actx){var C=window.AudioContext||window.webkitAudioContext;if(C)actx=new C();}
+  if(actx&&actx.state==="suspended")actx.resume();
+}
+function tone(f,ms,v){
+  if(!actx)return;
+  var o=actx.createOscillator(),g=actx.createGain();
+  o.type="square";o.frequency.value=f;
+  g.gain.setValueAtTime(v||0.3,actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+ms/1000);
+  o.connect(g).connect(actx.destination);
+  o.start();o.stop(actx.currentTime+ms/1000+0.02);
+}
+function buzz(p){if(navigator.vibrate)navigator.vibrate(p);}
+
+/* ---------- keep screen awake ---------- */
+var lock=null, vid=document.getElementById("nosleep");
+function wnote(t){document.getElementById("wakeNote").textContent=t;}
+function videoOn(){
+  if(!vid){wnote("cannot hold screen awake");return;}
+  var p=vid.play();
+  if(p&&p.then){p.then(function(){wnote("screen held awake, video method");})
+    .catch(function(e){wnote("cannot hold screen awake: "+e.name);});}
+  else wnote("screen held awake, video method");
+}
+function lockOn(){
+  if("wakeLock" in navigator){
+    navigator.wakeLock.request("screen").then(function(l){
+      lock=l;wnote("screen held awake");
+      l.addEventListener("release",function(){lock=null;if(running)videoOn();});
+    }).catch(function(){videoOn();});
+  } else videoOn();
+}
+function lockOff(){
+  if(lock){try{lock.release();}catch(e){}lock=null;}
+  if(vid)vid.pause();
+  wnote("");
+}
+document.addEventListener("visibilitychange",function(){
+  if(document.visibilityState==="visible"&&running){
+    if(!lock)lockOn(); else if(vid&&vid.paused)videoOn();
+  }
+});
+
+/* ---------- timer ---------- */
+var startMin=load("startMin",6), running=false, zeroAt=0, lastTick=null;
+var clock=document.getElementById("clock"), cnote=document.getElementById("cnote");
+var mainBtn=document.getElementById("mainBtn"), setter=document.getElementById("setter");
+var startVal=document.getElementById("startVal");
+startVal.textContent=startMin+":00";
+
+function paintClock(){
+  if(!running){clock.textContent=startMin+":00";clock.classList.remove("up");return;}
+  var rem=Math.round((zeroAt-Date.now())/1000), up=rem<0, a=Math.abs(rem);
+  clock.textContent=(up?"+":"")+Math.floor(a/60)+":"+pad2(a%60);
+  clock.classList.toggle("up",up);
+}
+function alertFor(s){
+  if(s===0){tone(500,1200,.35);buzz([600]);return;}
+  if(s<0)return;
+  if(s<=20){tone(1000,90);buzz([70]);return;}
+  if(s===30){tone(800,120);setTimeout(function(){tone(800,120);},200);buzz([90,90,90]);return;}
+  if(s===60){tone(880,500,.35);buzz([250,120,250]);return;}
+  if(s%60===0){tone(660,250);buzz([180]);}
+}
+(function loop(){
+  if(running){
+    var rem=Math.round((zeroAt-Date.now())/1000);
+    if(lastTick===null||rem!==lastTick){
+      if(lastTick!==null&&rem<lastTick)alertFor(rem);
+      lastTick=rem;
+    }
+    paintClock();
+  }
+  requestAnimationFrame(loop);
+})();
+
+mainBtn.addEventListener("click",function(){
+  if(running)return;
+  audioReady();running=true;zeroAt=Date.now()+startMin*60000;lastTick=null;
+  mainBtn.textContent="RUNNING";setter.style.display="none";
+  cnote.textContent="counting down";lockOn();tone(660,200);
+  save("gunAt",zeroAt);
+});
+function resetTimer(){
+  running=false;lastTick=null;mainBtn.textContent="START";
+  setter.style.display="flex";cnote.textContent="ready";lockOff();paintClock();
+}
+document.getElementById("syncBtn").addEventListener("click",function(){
+  if(!running)return;
+  var snapped=Math.round(((zeroAt-Date.now())/1000)/60)*60;
+  zeroAt=Date.now()+snapped*1000;lastTick=null;
+  tone(1200,80);buzz([50]);
+  cnote.textContent="synced to "+(snapped/60)+":00";paintClock();save("gunAt",zeroAt);
+});
+document.getElementById("plus1").addEventListener("click",function(){
+  if(running){zeroAt+=60000;lastTick=null;tone(900,70);paintClock();save("gunAt",zeroAt);}});
+document.getElementById("minus1").addEventListener("click",function(){
+  if(running){zeroAt-=60000;lastTick=null;tone(700,70);paintClock();save("gunAt",zeroAt);}});
+document.getElementById("moreMin").addEventListener("click",function(){
+  if(running)return;startMin=Math.min(30,startMin+1);save("startMin",startMin);
+  startVal.textContent=startMin+":00";paintClock();});
+document.getElementById("lessMin").addEventListener("click",function(){
+  if(running)return;startMin=Math.max(1,startMin-1);save("startMin",startMin);
+  startVal.textContent=startMin+":00";paintClock();});
+
+var hold=null, rb=document.getElementById("restartBtn");
+function hs(e){e.preventDefault();rb.textContent="KEEP HOLDING";
+  hold=setTimeout(function(){rb.textContent="HOLD TO RESTART";buzz([120,80,120]);resetTimer();},900);}
+function he(){if(hold){clearTimeout(hold);hold=null;}rb.textContent="HOLD TO RESTART";}
+rb.addEventListener("touchstart",hs,{passive:false});
+rb.addEventListener("touchend",he);rb.addEventListener("touchcancel",he);
+rb.addEventListener("mousedown",hs);rb.addEventListener("mouseup",he);rb.addEventListener("mouseleave",he);
+
+/* ---------- tabs ---------- */
+var views={start:["tStart","vStart"],wind:["tWind","vWind"],line:["tLine","vLine"],mark:["tMark","vMark"]};
+function show(k){
+  document.getElementById("vFlags").classList.remove("on");
+  for(var n in views){
+    var on=(n===k);
+    document.getElementById(views[n][1]).classList.toggle("on",on);
+    document.getElementById(views[n][0]).setAttribute("aria-selected",on);
+  }
+}
+/* the flags view hangs off START rather than taking a fifth tab.
+   It must stay inside this page: a separate page would reload and kill a running clock. */
+document.getElementById("flagBtn").addEventListener("click",function(){
+  document.getElementById("vStart").classList.remove("on");
+  document.getElementById("vFlags").classList.add("on");
+});
+document.getElementById("flagBack").addEventListener("click",function(){show("start");});
+
+/* ---------- race signals reference ---------- */
+/* Meanings: World Sailing Race Signals 2025-2028.
+   Designs: heraldic blazons from the International Code of Signals.
+   chk:1 marks a design whose blazon is ambiguous about corner order. */
+var FW=60,FH=40;
+function sq(x,y,w,h,c){return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+c+'"/>';}
+function flagSvg(body){
+  return '<svg viewBox="0 0 '+FW+' '+FH+'" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'+body+'</svg>';
+}
+var CY="#F5C518",CK="#111111",CR="#D0342C",CB="#1B5FA8",CW="#FFFFFF",CO="#E8761F";
+
+var FLAGS=[
+ {h:"Start sequence, every race"},
+ {n:"Class flag",d:sq(0,0,FW,FH,"#2A3A46")+
+   '<text x="30" y="24" text-anchor="middle" font-size="10" fill="#9AA7B2">your class</text>',
+  m:"Warning signal. The sequence has begun. Usually 5 minutes to the start.",s:"one sound"},
+ {n:"P, preparatory",d:sq(0,0,FW,FH,CB)+sq(16,10,28,20,CW),
+  m:"Preparatory signal. Usually 4 minutes to go. You are now bound by the racing rules.",s:"one sound"},
+ {n:"Orange flag",d:sq(0,0,FW,FH,CO),
+  m:"The staff flying this is one end of the starting line. The other end is the pin.",s:"no sound"},
+ {n:"X, individual recall",d:sq(0,0,FW,FH,CW)+sq(24,0,12,FH,CB)+sq(0,14,FW,12,CB),
+  m:"One or more boats were over early. If it might be you, go back and restart. It stays up until everyone is clear.",s:"one sound"},
+ {n:"First Substitute, general recall",d:'<path d="M0 0 L60 20 L0 40 Z" fill="'+CY+'"/>'+
+   '<path d="M0 0 L60 20 L0 40 Z" fill="none" stroke="'+CB+'" stroke-width="7"/>',
+  m:"General recall. The whole fleet comes back. The warning signal follows one minute after it comes down.",s:"two sounds",chk:1},
+ {n:"AP, postponement",d:sq(0,0,FW,FH,CR)+sq(12,0,12,FH,CW)+sq(36,0,12,FH,CW),
+  m:"Races not started are postponed. The warning signal follows one minute after it comes down. Over H, go ashore. Over A, no more racing today.",s:"two sounds"},
+
+ {h:"Penalty flags, flown at the preparatory signal"},
+ {n:"I, round the ends",d:sq(0,0,FW,FH,CY)+'<circle cx="30" cy="20" r="9" fill="'+CK+'"/>',
+  m:"Rule 30.1. In the last minute, if any part of you is over the line you must sail back round an end of the line, not straight back.",s:"with the prep signal"},
+ {n:"Z, twenty percent penalty",d:'<path d="M0 0 L60 0 L30 20 Z" fill="'+CY+'"/>'+
+   '<path d="M0 0 L30 20 L0 40 Z" fill="'+CK+'"/>'+
+   '<path d="M60 0 L60 40 L30 20 Z" fill="'+CR+'"/>'+
+   '<path d="M0 40 L60 40 L30 20 Z" fill="'+CB+'"/>',
+  m:"Rule 30.2. In the last minute, being in the triangle by the line costs a 20 percent scoring penalty, without a hearing.",s:"with the prep signal",chk:1},
+ {n:"U, disqualification",d:sq(0,0,FW,FH,CW)+sq(0,0,30,20,CR)+sq(30,20,30,20,CR),
+  m:"Rule 30.3. In the last minute, being in the triangle by the line is a disqualification, unless the race is restarted or resailed.",s:"with the prep signal",chk:1},
+ {n:"Black flag",d:sq(0,0,FW,FH,CK),
+  m:"Rule 30.4. Harshest of the four. In the last minute, being in the triangle disqualifies you even if the race is restarted or resailed.",s:"with the prep signal"},
+
+ {h:"On the water"},
+ {n:"C, next mark moved",d:sq(0,0,FW,FH,CB)+sq(0,12,FW,16,CW)+sq(0,16,FW,8,CR),
+  m:"The position of the next mark has changed. A new compass bearing is usually shown with it. Retype that as your course axis.",s:"repeated sounds"},
+ {n:"S, shortened course",d:sq(0,0,FW,FH,CW)+sq(16,10,28,20,CB),
+  m:"The course is shortened, rule 32.2. Finish where they tell you, often at the mark you are approaching.",s:"two sounds"},
+ {n:"M, replaces a missing mark",d:sq(0,0,FW,FH,CB)+
+   '<path d="M0 0 L60 40 M60 0 L0 40" stroke="'+CW+'" stroke-width="6"/>',
+  m:"The object flying this replaces a mark that is missing or has drifted. Round it as if it were the mark.",s:"repeated sounds"},
+ {n:"N, abandoned",d:
+   sq(0,0,15,10,CB)+sq(30,0,15,10,CB)+sq(15,10,15,10,CB)+sq(45,10,15,10,CB)+
+   sq(0,20,15,10,CB)+sq(30,20,15,10,CB)+sq(15,30,15,10,CB)+sq(45,30,15,10,CB),
+  m:"All races in progress are abandoned. Return to the starting area. Over H, further signals ashore. Over A, no more racing today.",s:"three sounds"},
+ {n:"L, follow or read",d:sq(0,0,FW,FH,CY)+sq(30,0,30,20,CK)+sq(0,20,30,20,CK),
+  m:"Afloat, come within hail or follow this vessel. Ashore, a notice has been posted.",s:"repeated sounds"},
+ {n:"Y, wear a lifejacket",d:sq(0,0,FW,FH,CY)+
+   '<g stroke="'+CR+'" stroke-width="7"><path d="M-20 40 L20 -10 M0 40 L40 -10 M20 40 L60 -10 M40 40 L80 -10 M60 40 L100 -10"/></g>',
+  m:"Wear a personal flotation device, rule 40. Put it on and keep it on.",s:"one sound"},
+ {n:"V, monitor the radio",d:sq(0,0,FW,FH,CW)+
+   '<path d="M0 0 L60 40 M60 0 L0 40" stroke="'+CR+'" stroke-width="6"/>',
+  m:"Monitor the communication channel for safety instructions, rule 37.",s:"repeated sounds"},
+ {n:"Blue flag",d:sq(0,0,FW,FH,CB),
+  m:"The staff flying this is one end of the finishing line.",s:"no sound"}
+];
+
+(function(){
+  var out="";
+  for(var i=0;i<FLAGS.length;i++){
+    var f=FLAGS[i];
+    if(f.h){out+='<div class="fhead">'+f.h+'</div>';continue;}
+    out+='<div class="flagrow">'+flagSvg(f.d)+'<div class="fx">'+
+      '<div class="fn">'+f.n+'</div><div class="fm">'+f.m+'</div>'+
+      '<div class="fs">'+f.s+'</div>'+
+      (f.chk?'<div class="chk">check this design against a real set</div>':'')+
+      '</div></div>';
+  }
+  document.getElementById("flagList").innerHTML=out;
+})();
+for(var n in views)(function(key){
+  document.getElementById(views[key][0]).addEventListener("click",function(){show(key);});
+})(n);
+
+/* ---------- wind ---------- */
+var tackAngle=load("tackAngle",80), variation=load("variation",10);
+var winMin=load("winMin",30);
+var logs=load("logs",[]);          // {t, wind, tack}
+var curTack=load("curTack",null);  // "P","S","D"
+document.getElementById("taVal").textContent=tackAngle+"\u00B0";
+document.getElementById("vaVal").textContent=variation+"\u00B0";
+
+function stepTA(d){tackAngle=Math.max(50,Math.min(120,tackAngle+d));
+  save("tackAngle",tackAngle);document.getElementById("taVal").textContent=tackAngle+"\u00B0";
+  paintHud();paintPolar();}
+document.getElementById("taMore").addEventListener("click",function(){stepTA(5);});
+document.getElementById("taLess").addEventListener("click",function(){stepTA(-5);});
+function stepVA(d){variation=Math.max(0,Math.min(30,variation+d));
+  save("variation",variation);document.getElementById("vaVal").textContent=variation+"\u00B0";}
+document.getElementById("vaMore").addEventListener("click",function(){stepVA(1);});
+document.getElementById("vaLess").addEventListener("click",function(){stepVA(-1);});
+
+function windFrom(hdgMag,tack){
+  var h=tackAngle/2;
+  if(tack==="S")return norm(hdgMag+h);
+  if(tack==="P")return norm(hdgMag-h);
+  return norm(hdgMag+180);
+}
+function addLog(hdgMag,tack){
+  var w=windFrom(hdgMag,tack);
+  logs.push({t:Date.now(),wind:Math.round(w),tack:tack});
+  if(logs.length>200)logs.shift();
+  curTack=tack;
+  save("logs",logs);save("curTack",curTack);
+  tone(1200,90);buzz([60]);
+  paintHud();paintLog();bias();layline();
+}
+
+var gpsNote=document.getElementById("gpsNote");
+var busy=false;
+function capture(tack){
+  var typed=document.getElementById("manHdg").value.trim();
+  if(typed!==""){
+    var h=parseInt(typed,10);
+    if(isNaN(h)||h<0||h>359){gpsNote.textContent="heading must be 0 to 359";return;}
+    document.getElementById("manHdg").value="";
+    gpsNote.textContent="logged "+pad3(h)+" typed";
+    addLog(h,tack);return;
+  }
+  if(busy)return;
+  if(!navigator.geolocation){gpsNote.textContent="no GPS. Type a heading instead.";return;}
+  busy=true;setBusy(true);
+  var samples=[], t0=Date.now(), done=false, id;
+  function finish(err){
+    if(done)return;done=true;busy=false;setBusy(false);
+    if(id!==undefined)navigator.geolocation.clearWatch(id);
+    clearTimeout(to);
+    if(err){gpsNote.textContent=err+" Type a heading instead.";return;}
+    if(!samples.length){gpsNote.textContent="no course over ground. Too slow, or no fix. Type a heading instead.";return;}
+    var trueCog=circMean(samples);
+    var mag=norm(trueCog+variation);
+    gpsNote.textContent="logged "+pad3(mag)+" from "+samples.length+" samples";
+    addLog(mag,tack);
+  }
+  var to=setTimeout(function(){finish(null);},13000);
+  id=navigator.geolocation.watchPosition(function(p){
+    var c=p.coords;
+    if(c.heading!==null&&!isNaN(c.heading)&&c.speed!==null&&c.speed>0.8)samples.push(c.heading);
+    gpsNote.textContent="sampling "+Math.round((Date.now()-t0)/1000)+"s, "+samples.length+" good";
+  },function(e){finish("GPS error: "+e.message+".");},
+  {enableHighAccuracy:true,maximumAge:0,timeout:15000});
+}
+function setBusy(b){
+  ["logPort","logStbd","logDdw"].forEach(function(i){document.getElementById(i).disabled=b;});
+}
+document.getElementById("logPort").addEventListener("click",function(){audioReady();capture("P");});
+document.getElementById("logStbd").addEventListener("click",function(){audioReady();capture("S");});
+document.getElementById("logDdw").addEventListener("click",function(){audioReady();capture("D");});
+
+function currentWind(){return logs.length?logs[logs.length-1].wind:null;}
+/* mean over a rolling time window, not a fixed number of readings.
+   A count-based mean spans whatever time you happened to tap over, and would
+   carry the previous race's readings into this one. */
+function windowLogs(){
+  var cut=Date.now()-winMin*60000;
+  return logs.filter(function(l){return l.t>=cut;});
+}
+function meanWind(){
+  var w=windowLogs();
+  if(w.length<3)return null;                 /* below 3 the mean is not worth trusting */
+  return circMean(w.map(function(l){return l.wind;}));
+}
+function paintHud(){
+  var w=currentWind();
+  document.getElementById("hudWind").textContent=w===null?"---":pad3(w);
+  var sh=document.getElementById("hudShift"), tk=document.getElementById("hudTack");
+  var lt=document.getElementById("hudLong"), ax=document.getElementById("hudAxis");
+
+  /* long tack, geometry against the bearing to the windward mark.
+     Read live from the MARK tab field, so there is one bearing, not two. */
+  lt.classList.remove("port","stbd","even");
+  var half=tackAngle/2;
+  var mfld=document.getElementById("markBrg");
+  var mv=mfld?parseInt(mfld.value,10):NaN;
+  var axis=(isNaN(mv)||!mfld||mfld.value.length<3)?null:norm(mv);
+  if(axis===null){lt.classList.add("even");lt.textContent="set mark bearing";
+    ax.textContent="mark bearing not set  \u00B7  mean over "+winMin+" min";}
+  else{
+    ax.textContent="mark "+pad3(axis)+"  \u00B7  mean over "+winMin+" min";
+    if(w===null){lt.classList.add("even");lt.textContent="\u2014";}
+    else{
+      var off=signed(w,axis), a=Math.abs(Math.round(off));
+      if(a<=3){lt.classList.add("even");lt.textContent="EVEN";}
+      else if(a>=half-3){
+        lt.classList.add(off>0?"stbd":"port");
+        lt.textContent=(off>0?"STBD":"PORT")+" FETCH";
+      }else{
+        lt.classList.add(off>0?"stbd":"port");
+        lt.textContent=(off>0?"STBD":"PORT")+" LONG "+a+"\u00B0";
+      }
+    }
+  }
+
+  /* shift, oscillation against the rolling mean */
+  sh.classList.remove("left","right");
+  if(w===null){sh.textContent="no data";tk.textContent="log a heading to start";return;}
+  var m=meanWind();
+  if(m===null){sh.textContent="building";
+    tk.textContent="need 3 readings in the last "+winMin+" min";return;}
+  var d=Math.round(signed(w,m));
+  if(d===0){sh.textContent="on average";tk.textContent="neither tack lifted";return;}
+  if(d>0){sh.classList.add("right");sh.textContent="RIGHT "+d+"\u00B0";
+    tk.textContent="starboard lifted by "+d+"\u00B0";}
+  else{sh.classList.add("left");sh.textContent="LEFT "+(-d)+"\u00B0";
+    tk.textContent="port lifted by "+(-d)+"\u00B0";}
+}
+function paintLog(){
+  var el=document.getElementById("logList"), out="";
+  var recent=logs.slice(-6).reverse();
+  for(var i=0;i<recent.length;i++){
+    var l=recent[i], d=new Date(l.t);
+    out+="<div><span>"+pad3(l.wind)+"</span><span>"+
+      (l.tack==="D"?"ddw":l.tack==="P"?"port":"stbd")+"</span><span>"+
+      pad2(d.getHours())+":"+pad2(d.getMinutes())+"</span></div>";
+  }
+  el.innerHTML=out;
+}
+
+/* ---------- line bias ---------- */
+var pinToBoat=load("pinToBoat",true);
+var lineBrg=document.getElementById("lineBrg");
+lineBrg.value=load("lineBrgVal","");
+function setDir(pb){
+  pinToBoat=pb;save("pinToBoat",pb);
+  document.getElementById("dirPB").setAttribute("aria-pressed",pb);
+  document.getElementById("dirBP").setAttribute("aria-pressed",!pb);
+  bias();
+}
+document.getElementById("dirPB").addEventListener("click",function(){setDir(true);});
+document.getElementById("dirBP").addEventListener("click",function(){setDir(false);});
+function bias(){
+  var lb=parseInt(lineBrg.value,10), w=currentWind();
+  var box=document.getElementById("verdict"),
+      big=document.getElementById("vBig"), small=document.getElementById("vSmall");
+  box.classList.remove("pin","boat","go");
+  if(isNaN(lb)){big.textContent="enter line bearing";small.textContent="line is square to \u2014";return;}
+  var sq=norm(pinToBoat?lb-90:lb+90);
+  small.textContent="line is square to "+pad3(sq);
+  if(w===null){big.textContent="need a wind reading";return;}
+  var b=Math.round(signed(sq,w));
+  if(b===0){big.textContent="SQUARE";return;}
+  if(b>0){box.classList.add("pin");big.textContent="PIN by "+b+"\u00B0";}
+  else{box.classList.add("boat");big.textContent="BOAT by "+(-b)+"\u00B0";}
+}
+lineBrg.addEventListener("input",function(){save("lineBrgVal",lineBrg.value);bias();});
+setDir(pinToBoat);
+
+/* ---------- laylines ---------- */
+var markBrg=document.getElementById("markBrg");
+function layline(){
+  var mb=parseInt(markBrg.value,10), w=currentWind();
+  var box=document.getElementById("lay"),
+      big=document.getElementById("lBig"), small=document.getElementById("lSmall");
+  box.classList.remove("pin","boat","go");
+  if(w===null){big.textContent="need a wind reading";small.textContent="log a heading first";return;}
+  var h=tackAngle/2;
+  var portLay=norm(w+h), stbdLay=norm(w-h);
+  if(curTack!=="P"&&curTack!=="S"){
+    big.textContent="upwind only";
+    small.textContent="port layline "+pad3(portLay)+", starboard layline "+pad3(stbdLay);
+    return;
+  }
+  var target=(curTack==="S")?portLay:stbdLay;
+  small.textContent="on "+(curTack==="S"?"starboard":"port")+
+    ", tack when the mark bears "+pad3(target);
+  if(isNaN(mb)){big.textContent="enter mark bearing";return;}
+  var d=(curTack==="S")?signed(target,mb):signed(mb,target);
+  d=Math.round(d);
+  if(Math.abs(d)<=2){box.classList.add("go");big.textContent="TACK NOW";}
+  else if(d>0){big.textContent=d+"\u00B0 SHORT";}
+  else{box.classList.add("pin");big.textContent=(-d)+"\u00B0 OVER";}
+}
+markBrg.addEventListener("input",function(){layline();paintHud();});
+
+/* ---------- averaging window ---------- */
+function paintWin(){
+  document.getElementById("winVal").textContent=winMin;
+  document.getElementById("winEcho").textContent=winMin;
+  paintHud();
+}
+function stepWin(d){
+  winMin=Math.max(10,Math.min(60,winMin+d));
+  save("winMin",winMin);paintWin();
+}
+document.getElementById("winMore").addEventListener("click",function(){stepWin(5);});
+document.getElementById("winLess").addEventListener("click",function(){stepWin(-5);});
+document.getElementById("resetLog").addEventListener("click",function(){
+  logs=[];save("logs",logs);tone(700,180);buzz([60,60,60]);
+  paintHud();paintLog();bias();layline();
+});
+paintWin();
+
+/* ---------- polar targets, display only ---------- */
+/* ELIMINATOR USA 15370, C&C 35-2, ORC. Upwind only. Valid full sail and non-spinnaker. */
+var POL_TWS =[6,8,10,12,14,16,20];
+var POL_TACK=[87,84,80,78,77,76,77];
+var POL_SPD =[4.77,5.55,6.02,6.22,6.31,6.35,6.40];
+var POL_VMG =[3.46,4.13,4.60,4.82,4.93,4.99,5.01];
+var polIdx=2;
+
+function polStep(i){polIdx=Math.max(0,Math.min(POL_TWS.length-1,i));paintPolar();}
+document.getElementById("twsMore").addEventListener("click",function(){polStep(polIdx+1);});
+document.getElementById("twsLess").addEventListener("click",function(){polStep(polIdx-1);});
+
+function polShow(m){
+  document.getElementById("polUp").setAttribute("aria-pressed",m==="up"?"true":"false");
+  document.getElementById("polDn").setAttribute("aria-pressed",m==="dn"?"true":"false");
+  document.getElementById("polUpwind").style.display=(m==="up")?"":"none";
+  document.getElementById("polDownwind").style.display=(m==="dn")?"":"none";
+}
+document.getElementById("polUp").addEventListener("click",function(){polShow("up");});
+document.getElementById("polDn").addEventListener("click",function(){polShow("dn");});
+
+function paintPolar(){
+  var t=POL_TACK[polIdx], want=Math.round(t/5)*5;
+  document.getElementById("twsVal").textContent=POL_TWS[polIdx];
+  document.getElementById("polTack").textContent=t+"\u00B0";
+  document.getElementById("polSpd").textContent=POL_SPD[polIdx].toFixed(2);
+  document.getElementById("polVmg").textContent=POL_VMG[polIdx].toFixed(2);
+  var m=document.getElementById("polMatch");
+  if(tackAngle===want){
+    m.className="polmatch ok";
+    m.textContent="tacking angle above is "+tackAngle+"\u00B0, matches the polar";
+  }else{
+    m.className="polmatch off";
+    m.textContent="tacking angle above is "+tackAngle+"\u00B0, polar wants "+want+"\u00B0";
+  }
+}
+paintPolar();
+
+/* ---------- boot ---------- */
+paintClock();paintHud();paintLog();bias();layline();
+})();
+</script>
+</body>
+</html>
