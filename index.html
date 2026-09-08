@@ -26,6 +26,9 @@
     padding:18px 20px;margin:0 0 14px;
     background:var(--panel);border:1px solid var(--line);border-radius:10px}
   .hud .w{font:500 46px/1 "Roboto Mono",monospace;font-variant-numeric:tabular-nums}
+  .hud .lf{flex:0 0 auto;text-align:center}
+  .hud .hd{font:500 13px/1 "Roboto Mono",monospace;color:var(--dim);
+    margin-top:7px;white-space:nowrap;font-variant-numeric:tabular-nums}
   .hud .rt{flex:1;text-align:right;line-height:1.35}
   .hud .sh{font:600 21px/1 "Roboto",sans-serif}
   .hud .tk{font-size:14px;color:var(--dim);margin-top:5px}
@@ -135,7 +138,10 @@
 </video>
 
 <div class="hud">
-  <div class="w" id="hudWind">---</div>
+  <div class="lf">
+    <div class="w" id="hudWind">---</div>
+    <div class="hd" id="hudHdg">hdg &mdash;</div>
+  </div>
   <div class="rt">
     <div class="lt" id="hudLong">set course axis</div>
     <div class="sh" id="hudShift">no data</div>
@@ -171,7 +177,7 @@
   <div class="row" style="margin-top:auto;padding-top:30px"><button class="btn" id="restartBtn">HOLD TO RESTART</button></div>
   <div class="row" style="margin-top:9px"><button class="btn" id="flagBtn">RACE SIGNALS</button></div>
   <div class="foot" id="wakeNote"></div>
-  <div class="foot"><a href="results.html" style="color:var(--dim)">open results page</a></div>
+  <div class="foot" id="resFoot"><a href="results.html" style="color:var(--dim)">open results page</a></div>
 </section>
 
 <!-- FLAGS -->
@@ -216,6 +222,7 @@
     </button>
   </div>
   <div class="row"><button class="btn" id="logDdw">DEAD DOWNWIND</button></div>
+  <div class="row"><button class="btn" id="logHtw">HEAD TO WIND</button></div>
   <div class="cnote" id="gpsNote">tap a tack to capture heading by GPS</div>
 
   <div class="setter">
@@ -238,6 +245,7 @@
     <span class="val" id="winVal">30</span>
     <button id="winMore">+</button>
   </div>
+  <div class="row"><button class="btn" id="undoLog">UNDO LAST READING</button></div>
   <div class="row"><button class="btn" id="resetLog">CLEAR LOG, START AVERAGE FRESH</button></div>
   <div class="foot" style="text-align:left">
     The shift compares the current wind against the average of the last <span id="winEcho">30</span>
@@ -271,12 +279,19 @@
       </div>
       <div class="polrow"><span class="k">Tacking angle, polar</span>
         <span class="v" id="polTack">80&deg;</span></div>
+      <div class="polrow"><span class="k">Target beat angle, TWA<br>
+        <span style="font-size:12px">half the tacking angle</span></span>
+        <span class="v" id="polBeat">40&deg;</span></div>
       <div class="polrow"><span class="k">Target boat speed</span>
         <span class="v" id="polSpd">6.02</span></div>
       <div class="polrow"><span class="k">Beat VMG</span>
         <span class="v sm" id="polVmg">4.60</span></div>
       <div class="polmatch" id="polMatch"></div>
-      <div class="polnote">Nothing here changes the tacking angle above. Set that by hand,
+      <div class="polnote">Beat angle is a TRUE wind angle, not apparent. Do not steer it
+        off the masthead. Use it as a heading offset: your target heading is the wind
+        direction in the readout above, plus the beat angle on starboard, minus it on
+        port.<br><br>
+        Nothing here changes the tacking angle above. Set that by hand,
         before the start, and leave it alone during a race.<br>
         Speeds are ORC predictions for ELIMINATOR, a C&amp;C 35-2. Reference, not a speed
         Dragon Spirit is known to hit. The angles are the robust part.</div>
@@ -437,10 +452,14 @@ mainBtn.addEventListener("click",function(){
   audioReady();running=true;zeroAt=Date.now()+startMin*60000;lastTick=null;
   mainBtn.textContent="RUNNING";setter.style.display="none";
   cnote.textContent="counting down";lockOn();tone(660,200);
+  resLink(false);
   save("gunAt",zeroAt);
 });
+function resLink(show){var e=document.getElementById("resFoot");
+  if(e)e.style.display=show?"":"none";}
 function resetTimer(){
   running=false;lastTick=null;mainBtn.textContent="START";
+  save("gunAt",0);resLink(true);
   setter.style.display="flex";cnote.textContent="ready";lockOff();paintClock();
 }
 document.getElementById("syncBtn").addEventListener("click",function(){
@@ -587,15 +606,18 @@ function stepVA(d){variation=Math.max(0,Math.min(30,variation+d));
 document.getElementById("vaMore").addEventListener("click",function(){stepVA(1);});
 document.getElementById("vaLess").addEventListener("click",function(){stepVA(-1);});
 
+function tackLabel(t){return t==="D"?"ddw":t==="H"?"htw":t==="P"?"port":"stbd";}
+function hdgText(l){return (l&&typeof l.hdg==="number"&&!isNaN(l.hdg))?pad3(l.hdg):"\u2014";}
 function windFrom(hdgMag,tack){
   var h=tackAngle/2;
+  if(tack==="H")return norm(hdgMag);   /* in irons, the bow points at the wind */
   if(tack==="S")return norm(hdgMag+h);
   if(tack==="P")return norm(hdgMag-h);
   return norm(hdgMag+180);
 }
 function addLog(hdgMag,tack){
   var w=windFrom(hdgMag,tack);
-  logs.push({t:Date.now(),wind:Math.round(w),tack:tack});
+  logs.push({t:Date.now(),wind:Math.round(w),tack:tack,hdg:Math.round(hdgMag)});
   if(logs.length>200)logs.shift();
   curTack=tack;
   save("logs",logs);save("curTack",curTack);
@@ -607,6 +629,10 @@ var gpsNote=document.getElementById("gpsNote");
 var busy=false;
 function capture(tack){
   var typed=document.getElementById("manHdg").value.trim();
+  if(tack==="H"&&typed===""){
+    gpsNote.textContent="type the heading first. GPS cannot read a heading at head to wind.";
+    return;
+  }
   if(typed!==""){
     var h=parseInt(typed,10);
     if(isNaN(h)||h<0||h>359){gpsNote.textContent="heading must be 0 to 359";return;}
@@ -638,11 +664,12 @@ function capture(tack){
   {enableHighAccuracy:true,maximumAge:0,timeout:15000});
 }
 function setBusy(b){
-  ["logPort","logStbd","logDdw"].forEach(function(i){document.getElementById(i).disabled=b;});
+  ["logPort","logStbd","logDdw","logHtw"].forEach(function(i){document.getElementById(i).disabled=b;});
 }
 document.getElementById("logPort").addEventListener("click",function(){audioReady();capture("P");});
 document.getElementById("logStbd").addEventListener("click",function(){audioReady();capture("S");});
 document.getElementById("logDdw").addEventListener("click",function(){audioReady();capture("D");});
+document.getElementById("logHtw").addEventListener("click",function(){audioReady();capture("H");});
 
 function currentWind(){return logs.length?logs[logs.length-1].wind:null;}
 /* mean over a rolling time window, not a fixed number of readings.
@@ -660,6 +687,14 @@ function meanWind(){
 function paintHud(){
   var w=currentWind();
   document.getElementById("hudWind").textContent=w===null?"---":pad3(w);
+  /* the last heading you actually measured, with its age. Not a live sensor. */
+  var hh=document.getElementById("hudHdg"), lastL=logs.length?logs[logs.length-1]:null;
+  if(!lastL){hh.textContent="hdg \u2014";}
+  else{
+    var mins=Math.floor((Date.now()-lastL.t)/60000);
+    hh.textContent=hdgText(lastL)+" "+tackLabel(lastL.tack)+" \u00B7 "+
+      (mins<1?"now":mins+"m");
+  }
   var sh=document.getElementById("hudShift"), tk=document.getElementById("hudTack");
   var lt=document.getElementById("hudLong"), ax=document.getElementById("hudAxis");
 
@@ -707,7 +742,7 @@ function paintLog(){
   for(var i=0;i<recent.length;i++){
     var l=recent[i], d=new Date(l.t);
     out+="<div><span>"+pad3(l.wind)+"</span><span>"+
-      (l.tack==="D"?"ddw":l.tack==="P"?"port":"stbd")+"</span><span>"+
+      tackLabel(l.tack)+" from "+hdgText(l)+"</span><span>"+
       pad2(d.getHours())+":"+pad2(d.getMinutes())+"</span></div>";
   }
   el.innerHTML=out;
@@ -744,8 +779,10 @@ setDir(pinToBoat);
 
 /* ---------- laylines ---------- */
 var markBrg=document.getElementById("markBrg");
+markBrg.value=load("markBrgVal","");
 function layline(){
-  var mb=parseInt(markBrg.value,10), w=currentWind();
+  /* same three digit guard the HUD uses, so both readouts agree */
+  var mb=(markBrg.value.length<3)?NaN:parseInt(markBrg.value,10), w=currentWind();
   var box=document.getElementById("lay"),
       big=document.getElementById("lBig"), small=document.getElementById("lSmall");
   box.classList.remove("pin","boat","go");
@@ -767,7 +804,7 @@ function layline(){
   else if(d>0){big.textContent=d+"\u00B0 SHORT";}
   else{box.classList.add("pin");big.textContent=(-d)+"\u00B0 OVER";}
 }
-markBrg.addEventListener("input",function(){layline();paintHud();});
+markBrg.addEventListener("input",function(){save("markBrgVal",markBrg.value);layline();paintHud();});
 
 /* ---------- averaging window ---------- */
 function paintWin(){
@@ -781,6 +818,15 @@ function stepWin(d){
 }
 document.getElementById("winMore").addEventListener("click",function(){stepWin(5);});
 document.getElementById("winLess").addEventListener("click",function(){stepWin(-5);});
+document.getElementById("undoLog").addEventListener("click",function(){
+  if(!logs.length){gpsNote.textContent="nothing to undo";return;}
+  var gone=logs.pop();
+  curTack=logs.length?logs[logs.length-1].tack:null;
+  save("logs",logs);save("curTack",curTack);
+  gpsNote.textContent="removed "+pad3(gone.wind)+", "+tackLabel(gone.tack);
+  tone(700,80);buzz([40]);
+  paintHud();paintLog();bias();layline();
+});
 document.getElementById("resetLog").addEventListener("click",function(){
   logs=[];save("logs",logs);tone(700,180);buzz([60,60,60]);
   paintHud();paintLog();bias();layline();
@@ -812,6 +858,12 @@ function paintPolar(){
   var t=POL_TACK[polIdx], want=Math.round(t/5)*5;
   document.getElementById("twsVal").textContent=POL_TWS[polIdx];
   document.getElementById("polTack").textContent=t+"\u00B0";
+  /* ORC beat angle is a TRUE wind angle and is exactly half the tacking
+     angle. Verified: boat speed times cos(tack/2) reproduces the
+     certificate beat VMG on all seven rows to within rounding. */
+  var beat=t/2;
+  document.getElementById("polBeat").textContent=
+    (beat===Math.floor(beat)?beat:beat.toFixed(1))+"\u00B0";
   document.getElementById("polSpd").textContent=POL_SPD[polIdx].toFixed(2);
   document.getElementById("polVmg").textContent=POL_VMG[polIdx].toFixed(2);
   var m=document.getElementById("polMatch");
@@ -826,7 +878,24 @@ function paintPolar(){
 paintPolar();
 
 /* ---------- boot ---------- */
+/* Restore a countdown that was running before a reload. Chrome on Android can
+   discard a backgrounded tab, and losing the sequence at 2 minutes is fatal. */
+(function(){
+  var g=load("gunAt",0);
+  if(!g){resLink(true);return;}
+  var rem=(g-Date.now())/1000;
+  if(rem<-900||rem>2400){save("gunAt",0);resLink(true);return;}   /* stale, ignore */
+  running=true;zeroAt=g;lastTick=null;
+  mainBtn.textContent="RUNNING";setter.style.display="none";
+  cnote.textContent="restored after reload";
+  lockOn();resLink(false);
+  /* audio needs a gesture after a reload, so arm it on the first touch */
+  document.addEventListener("touchstart",function(){audioReady();},{once:true});
+  document.addEventListener("click",function(){audioReady();},{once:true});
+})();
 paintClock();paintHud();paintLog();bias();layline();
+/* keep the heading age honest without touching the clock loop */
+setInterval(paintHud,15000);
 })();
 </script>
 <script>
